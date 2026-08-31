@@ -19,6 +19,11 @@ spring:
       idle-timeout: 30000
       max-lifetime: 1200000
 
+  admin:
+    username: ${SUPER_ADMIN_USERNAME:admin}
+    password: ${SUPER_ADMIN_PASSWORD:Admin@123} # 123456 chỉ là fallback mặc định dưới dev local
+    email: ${SUPER_ADMIN_EMAIL:admin@system.com}
+
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
