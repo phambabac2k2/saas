@@ -2,6 +2,8 @@ package com.bacpham.saas.security;
 
 import com.bacpham.saas.config.TenantContext;
 import com.bacpham.saas.config.TenantSchemaResolver;
+import io.jsonwebtoken.Claims;
+import jakarta.annotation.Nonnull;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -19,6 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -29,49 +31,56 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final TenantSchemaResolver tenantSchemaResolver;
 
     @Override
-    protected void doFilterInternal(final HttpServletRequest request,
-                                    final HttpServletResponse response,
-                                    final FilterChain filterChain) throws ServletException, IOException {
-
-        if (request.getRequestURI().contains("/api/v1/auth/login")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+    protected void doFilterInternal(
+            @Nonnull final HttpServletRequest request,
+            @Nonnull final HttpServletResponse response,
+            @Nonnull final FilterChain filterChain
+    ) throws ServletException, IOException {
 
         try {
             final String jwt = getJwtFromRequest(request);
-            if (StringUtils.hasText(jwt) && this.jwtTokenService.validateToken(jwt)) {
-                final String userId = this.jwtTokenService.getUserIdFromToken(jwt);
-                final String tenantId = this.jwtTokenService.getTenantIdFromToken(jwt);
-                final String role = this.jwtTokenService.getRoleFromToken(jwt);
 
-                if (tenantId != null) {
-                    // Stocker le tenant ID et le schemaName
+            if (StringUtils.hasText(jwt)) {
+                // Parse và Validate token duy nhất 1 lần
+                final Claims claims = this.jwtTokenService.validateAndGetClaims(jwt);
+
+                final String userId = claims.getSubject();
+                final String tenantId = claims.get("tenant_id", String.class);
+                final String role = claims.get("role", String.class);
+
+                // Set thông tin Tenant cho ThreadLocal
+                if (StringUtils.hasText(tenantId)) {
                     TenantContext.setCurrentTenant(tenantId);
                     final String schemaName = this.tenantSchemaResolver.resolveTenantSchema(tenantId);
                     TenantContext.setCurrentSchema(schemaName);
                 }
 
-                // Create authentication token
-                final SimpleGrantedAuthority authority = new SimpleGrantedAuthority(role);
+                // Xử lý GrantedAuthority an toàn (tránh NullPointerException nếu role null)
+                final List<SimpleGrantedAuthority> authorities = StringUtils.hasText(role)
+                        ? Collections.singletonList(new SimpleGrantedAuthority(role))
+                        : Collections.emptyList();
+
+                // Tạo đối tượng Authentication trong Spring Security
                 final UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 userId,
                                 null,
-                                Collections.singletonList(authority)
+                                authorities
                         );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                log.debug("User authenticated for user ID:{}, tenant: {}, role: {}", userId, tenantId, role);
+                log.debug("Authenticated user ID:{}, tenant: {}, role: {}", userId, tenantId, role);
             }
         } catch (final Exception e) {
-            log.error("Error authenticating user", e);
+            log.error("Authentication failed: {}", e.getMessage());
+            SecurityContextHolder.clearContext(); // Dọn dẹp context nếu xác thực thất bại
         }
 
         try {
             filterChain.doFilter(request, response);
         } finally {
+            // Luôn luôn giải phóng ThreadLocal để tránh leak dữ liệu giữa các request
             TenantContext.clear();
         }
     }

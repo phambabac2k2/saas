@@ -49,16 +49,10 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth ->
-
-                // public routes
-                auth.requestMatchers(PUBLIC_URLS)
-                        .permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**")
-                        .permitAll()
-
-                        // all other routes require authentication
-                        .anyRequest()
-                        .authenticated())
+                        auth.requestMatchers(PUBLIC_URLS).permitAll()
+                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                .anyRequest().authenticated()
+                )
                 .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
                 .addFilterBefore(this.jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -68,10 +62,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         final CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*")); // Configure properly in production
+        configuration.setAllowedOrigins(List.of("https://saas-ui-sooty.vercel.app/"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        // configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
         final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

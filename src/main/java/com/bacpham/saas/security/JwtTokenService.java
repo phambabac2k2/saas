@@ -1,6 +1,5 @@
 package com.bacpham.saas.security;
 
-
 import com.bacpham.saas.exceptions.UnauthorizedException;
 import com.bacpham.saas.properties.JwtProperties;
 import io.jsonwebtoken.Claims;
@@ -12,7 +11,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
 
 import java.security.KeyFactory;
 import java.security.PrivateKey;
@@ -52,10 +50,8 @@ public class JwtTokenService {
     }
 
     public String generateAccessToken(
-            @Nonnull
-            final String tenantId,
-            @Nonnull
-            final String userId,
+            @Nonnull final String tenantId,
+            @Nonnull final String userId,
             final String role
     ) {
         final Date now = new Date();
@@ -70,31 +66,15 @@ public class JwtTokenService {
                 .issuer("stock-saas-app")
                 .signWith(this.privateKey, Jwts.SIG.RS256)
                 .compact();
-
     }
 
-    public String getUserIdFromToken(final String token) {
-        final Claims claims = getClaimsFromToken(token);
-        return claims.getSubject();
-    }
-
-    public String getTenantIdFromToken(final String token) {
-        final Claims claims = getClaimsFromToken(token);
-        return claims.get("tenant_id", String.class);
-    }
-
-    public String getRoleFromToken(final String token) {
-        final Claims claims = getClaimsFromToken(token);
-        return claims.get("role", String.class);
-    }
-
-    public boolean validateToken(final String token) {
+    public Claims validateAndGetClaims(final String token) {
         try {
-            Jwts.parser()
+            return Jwts.parser()
                     .verifyWith(this.publicKey)
                     .build()
-                    .parseSignedClaims(token);
-            return true;
+                    .parseSignedClaims(token)
+                    .getPayload();
         } catch (final ExpiredJwtException e) {
             throw new UnauthorizedException("Token has expired");
         } catch (final UnsupportedOperationException e) {
@@ -108,29 +88,16 @@ public class JwtTokenService {
         }
     }
 
-    private Claims getClaimsFromToken(final String token) {
-        return Jwts.parser()
-                .verifyWith(this.publicKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-    }
-
-
-
     private PrivateKey parsePrivateKey(final String key) throws Exception {
         final String privateKeyPEM = key
                 .replace("-----BEGIN PRIVATE KEY-----", "")
                 .replace("-----END PRIVATE KEY-----", "")
                 .replaceAll("\\s", "");
 
-        final byte[] encoded = Base64.getDecoder()
-                .decode(privateKeyPEM);
+        final byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
         final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
-        return KeyFactory.getInstance("RSA")
-                .generatePrivate(keySpec);
+        return KeyFactory.getInstance("RSA").generatePrivate(keySpec);
     }
-
 
     private PublicKey parsePublicKey(final String key) throws Exception {
         final String publicKeyPEM = key
@@ -138,10 +105,8 @@ public class JwtTokenService {
                 .replace("-----END PUBLIC KEY-----", "")
                 .replaceAll("\\s", "");
 
-        final byte[] encoded = Base64.getDecoder()
-                .decode(publicKeyPEM);
+        final byte[] encoded = Base64.getDecoder().decode(publicKeyPEM);
         final X509EncodedKeySpec keySpec = new X509EncodedKeySpec(encoded);
-        return KeyFactory.getInstance("RSA")
-                .generatePublic(keySpec);
+        return KeyFactory.getInstance("RSA").generatePublic(keySpec);
     }
 }
