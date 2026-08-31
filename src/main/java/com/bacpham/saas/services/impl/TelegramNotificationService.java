@@ -17,6 +17,9 @@ public class TelegramNotificationService {
     @Value("${app.telegram.chat-id:}")
     private String chatId;
 
+    @Value("${app.telegram.approval-url:}")
+    private String approvalUrl;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     public void sendApprovalNotification(String companyName, String adminEmail, String companyCode) {
@@ -28,12 +31,12 @@ public class TelegramNotificationService {
         String url = "https://api.telegram.org/bot" + botToken + "/sendMessage";
         
         String message = String.format(
-            "🔔 *Yêu Cầu Duyệt Doanh Nghiệp Mới*\n\n" +
-            "🏢 *Tên công ty:* %s\n" +
-            "🔑 *Mã công ty:* `%s`\n" +
-            "📧 *Email admin:* %s\n\n" +
-            "🔗 [Nhấn vào đây để duyệt](https://saas-ui-production.vercel.app/tenants)",
-            companyName, companyCode, adminEmail
+            "*Yêu Cầu Duyệt Doanh Nghiệp Mới*\n\n" +
+            "*Tên công ty:* %s\n" +
+            "*Mã công ty:* `%s`\n" +
+            "*Email admin:* %s\n\n" +
+            "🔗 [Nhấn vào đây để duyệt](%s)} )",
+            companyName, companyCode, adminEmail, approvalUrl
         );
 
         Map<String, Object> request = new HashMap<>();
